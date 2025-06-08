@@ -1,4 +1,4 @@
-﻿add_executable (BezierTesselation "BezierTesselation.cpp" )
+﻿add_executable (BezierTesselation "BezierTesselation.cpp"  "app/app.cpp" "input/inputHandler.cpp"  "shader/shader.cpp" "shader/shaderBuilder.cpp" "shader/shaderManager.cpp" "window/window.cpp" "camera/camera.cpp" "error/error.cpp" "entity/bezierC0Surface.cpp" "mesh/mesh.cpp" "mesh/meshGenerator.cpp")
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET BezierTesselation PROPERTY CXX_STANDARD 20)
