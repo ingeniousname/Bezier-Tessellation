@@ -3,6 +3,9 @@
 #include "GL\glew.h"
 #include "shader\shaderBuilder.hpp"
 #include <vector\vector.hpp>
+#include <imgui.h>
+#include <backends\imgui_impl_opengl3.h>
+#include <backends\imgui_impl_glfw.h>
 
 GLFWApplication::GLFWApplication()
 {
@@ -51,24 +54,45 @@ App::App(int width, int height, int ui_width) : GLFWApplication{}, window(width,
 	camera.rotate(-3.1415f / 4, -3.1415f / 4);
 	glClearColor(1.f, 1.f, 1.f, 1.f);
 
-	bezierSurface = std::make_shared<BezierC0Surface>(
-		std::vector<Vector4<float>>{
-			Vector4<float>(-1.5f, 0.0f, -1.5f, 1.0f), Vector4<float>(-0.5f, 0.2f, -1.5f, 1.0f),
-			Vector4<float>(0.5f, 0.2f, -1.5f, 1.0f), Vector4<float>(1.5f, 0.0f, -1.5f, 1.0f),
+	std::vector<Vector4<float>> controlPoints;
+	controlPoints.reserve(7 * 7);
 
-			Vector4<float>(-1.5f, 0.2f, -0.5f, 1.0f), Vector4<float>(-0.5f, 0.5f, -0.5f, 1.0f),
-			Vector4<float>(0.5f, 0.5f, -0.5f, 1.0f), Vector4<float>(1.5f, 0.2f, -0.5f, 1.0f),
+	float spacing = 1.0f;
+	float start = -3.0f * spacing;
 
-			Vector4<float>(-1.5f, 0.2f, 0.5f, 1.0f), Vector4<float>(-0.5f, 0.5f, 0.5f, 1.0f),
-			Vector4<float>(0.5f, 0.5f, 0.5f, 1.0f), Vector4<float>(1.5f, 0.2f, 0.5f, 1.0f),
+	for (int row = 0; row < 7; ++row) {
+		for (int col = 0; col < 7; ++col) {
+			float x = start + col * spacing;
+			float z = start + row * spacing;
 
-			Vector4<float>(-1.5f, 0.0f, 1.5f, 1.0f), Vector4<float>(-0.5f, 0.2f, 1.5f, 1.0f),
-			Vector4<float>(0.5f, 0.2f, 1.5f, 1.0f), Vector4<float>(1.5f, 0.0f, 1.5f, 1.0f),
-	}, 1, 1);
+			float y = 0.9f * std::cos(0.5f * x) * std::sin(0.5f * z);
+
+			controlPoints.emplace_back(x, y, z, 1.0f);
+		}
+	}
+
+	bezierSurface[0] = std::make_shared<BezierC0Surface>(controlPoints, 2, 2);
+
+	std::vector<Vector4<float>> controlPoints2;
+	controlPoints2.reserve(7 * 7);
+
+	for (int row = 0; row < 7; ++row) {
+		for (int col = 0; col < 7; ++col) {
+			float x = start + col * spacing;
+			float z = start + row * spacing;
+
+			// Radial paraboloid: y = -0.1 * (x^2 + z^2)
+			float y = -0.1f * (x * x + z * z);
+
+			controlPoints2.emplace_back(x, y, z, 1.0f);
+		}
+	}
+
+	bezierSurface[1] = std::make_shared<BezierC0Surface>(controlPoints2, 2, 2);
 
 	this->addShader("default", "res/simpleVertex.glsl", "res/simpleFragment.glsl");
 
-	this->addShader("bezierC0Surface", "res/bezierC0Vertex.glsl", "res/simpleFragment.glsl", "",
+	this->addShader("bezierC0Surface", "res/bezierC0Vertex.glsl", "res/phongFragment.glsl", "",
 		{ "res/bezierC0SurfaceTessC.glsl", "res/bezierC0SurfaceTessE.glsl" });
 }
 
@@ -82,7 +106,7 @@ void App::loop()
 	{
 		this->processInput();
 		this->render();
-		window.handleImGui();
+		this->showUI();
 		window.finishFrame();
 	}
 }
@@ -99,8 +123,60 @@ void App::render()
 			shader.second->setUniformMat4fv("view", camera.getViewMatrix());
 		}
 
-		bezierSurface->draw(shaderManager);
+		shaderManager.get("bezierC0Surface")->setUniformVec3f("light_pos", { 0, 5.f, 0 });
+		shaderManager.get("bezierC0Surface")->setUniformVec3f("view_pos", camera.getPosition());
+
+		bezierSurface[currSurfaceIdx]->draw(shaderManager);
 	}
+}
+
+void App::showUI()
+{
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+
+	const ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoTitleBar |
+		ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoCollapse;
+
+
+	ImGui::SetNextWindowPos(ImVec2(window.getViewportWidth(), 0));
+	ImGui::SetNextWindowSize(ImVec2(window.getWidth() - window.getViewportWidth(), window.getHeight()));
+
+	// Example ImGui window
+	ImGui::Begin("Hello, ImGui!", nullptr, windowFlags);
+	ImGui::Dummy(ImVec2(0.f, 10.f));
+
+	ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+
+	if (ImGui::Checkbox("Wireframe", &wireframe))
+	{
+		if(wireframe)
+		{
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+			glDisable(GL_CULL_FACE);
+			glLineWidth(1.0f);
+		}
+		else
+		{
+			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+			glEnable(GL_CULL_FACE);
+		}
+	}
+
+	bezierSurface[currSurfaceIdx]->ShareParameterUI();
+
+	const char* items[] = { "Sine curve", "Paraboloid" };
+
+	ImGui::Combo("Select surface", &currSurfaceIdx, items, IM_ARRAYSIZE(items));
+
+
+	ImGui::End();
+	ImGui::Render();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+	ImGui::EndFrame();
 }
 
 void App::processInput()
@@ -117,6 +193,22 @@ void App::processInput()
 		{
 			camera.rotate(mouseMove.first * cameraRotSpeed, mouseMove.second * cameraRotSpeed);
 		}
+	}
+	if (inputHandler.isPressed(ImGuiKey_E))
+	{
+		bezierSurface[currSurfaceIdx]->changeOuterSubdiv(1);
+	}
+	if (inputHandler.isPressed(ImGuiKey_D))
+	{
+		bezierSurface[currSurfaceIdx]->changeOuterSubdiv(-1);
+	}
+	if (inputHandler.isPressed(ImGuiKey_R))
+	{
+		bezierSurface[currSurfaceIdx]->changeInnerSubdiv(1);
+	}
+	if (inputHandler.isPressed(ImGuiKey_F))
+	{
+		bezierSurface[currSurfaceIdx]->changeInnerSubdiv(-1);
 	}
 
 	camera.zoom(inputHandler.getScrollMove());

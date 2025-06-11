@@ -5,9 +5,10 @@
 #include <GL\glew.h>
 #include "error/error.hpp"
 #include "shader\shaderManager.hpp"
+#include <imgui.h>
 
 BezierC0Surface::BezierC0Surface(const std::vector<Vector4<float>>& points, int patchesU, int patchesV)
-	: points(points), patchesU(patchesU), patchesV(patchesV), subdivU(10), subdivV(10)
+	: points(points), patchesU(patchesU), patchesV(patchesV), subdivOuter(10), subdivInner(10)
 {
 	this->updateMesh();
 }
@@ -75,32 +76,66 @@ void BezierC0Surface::updateMesh()
 	mesh = Mesh::createMesh(vertices, indices);
 }
 
+void BezierC0Surface::ShareParameterUI()
+{
+	ImGui::Checkbox("Draw polynomial", &drawPolynomial);
+
+	if (ImGui::InputInt("Subdivisions outside", &subdivOuter))
+	{
+		if (subdivOuter < 2)
+			subdivOuter = 2;
+		if (subdivOuter > 50)
+			subdivOuter = 50;
+	}
+
+	if (ImGui::InputInt("Subdivisions inside", &subdivInner))
+	{
+		if (subdivInner < 2)
+			subdivInner = 2;
+		if (subdivInner > 50)
+			subdivInner = 50;
+	}
+}
+
+void BezierC0Surface::changeOuterSubdiv(int delta)
+{
+	subdivOuter += delta;
+	if (subdivOuter < 2)
+		subdivOuter = 2;
+	if (subdivOuter > 50)
+		subdivOuter = 50;
+}
+
+void BezierC0Surface::changeInnerSubdiv(int delta)
+{
+	subdivInner += delta;
+	if (subdivInner < 2)
+		subdivInner = 2;
+	if (subdivInner > 50)
+		subdivInner = 50;
+}
+
 void BezierC0Surface::draw(const ShaderManager& shaderManager)
 {
-
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	glDisable(GL_CULL_FACE);
-	glLineWidth(1.0f);
-
 	if (drawPolynomial)
 	{
+		glLineWidth(3.0f);
 		this->polynomialMesh->bind();
 		shaderManager.get("default")->bind();
-		shaderManager.get("default")->setUniformVec4f("color", {1.f, 0.f, 0.f, 1.f});
+		shaderManager.get("default")->setUniformVec4f("color", { 1.f, 0.f, 0.f, 1.f });
 		shaderManager.get("default")->setUniformMat4fv("model", Matrix4x4<float>::identity());
 		Call(glDrawElements(GL_LINES, this->polynomialMesh->getIndiciesCount(), GL_UNSIGNED_INT, nullptr));
 	}
 
+
+	glLineWidth(1.0f);
 	this->mesh->bind();
 	shaderManager.get("bezierC0Surface")->bind();
-	shaderManager.get("bezierC0Surface")->setUniformVec4f("color", {0.f, 0.f, 1.f, 1.f});
+	shaderManager.get("bezierC0Surface")->setUniformVec4f("color", { 0.f, 0.f, 1.f, 1.f });
 
-	shaderManager.get("bezierC0Surface")->setUniformInt("subdivU", subdivU);
-	shaderManager.get("bezierC0Surface")->setUniformInt("subdivV", subdivV);
+	shaderManager.get("bezierC0Surface")->setUniformInt("subdivOuter", subdivOuter);
+	shaderManager.get("bezierC0Surface")->setUniformInt("subdivInner", subdivInner);
 
 	Call(glPatchParameteri(GL_PATCH_VERTICES, 16));
 	Call(glDrawElements(GL_PATCHES, this->mesh->getIndiciesCount(), GL_UNSIGNED_INT, nullptr));
-
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-	glEnable(GL_CULL_FACE);
 }

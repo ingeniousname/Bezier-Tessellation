@@ -84,33 +84,6 @@ void Window::handleWindowResize(int width, int height)
 		glViewport(0, 0, width - ui_width, height);
 }
 
-void Window::handleImGui()
-{
-	ImGui_ImplOpenGL3_NewFrame();
-	ImGui_ImplGlfw_NewFrame();
-	ImGui::NewFrame();
-
-	const ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoMove |
-		ImGuiWindowFlags_NoTitleBar |
-		ImGuiWindowFlags_NoResize |
-		ImGuiWindowFlags_NoCollapse;
-
-
-	ImGui::SetNextWindowPos(ImVec2(this->getViewportWidth(), 0));
-	ImGui::SetNextWindowSize(ImVec2(this->getWidth() - this->getViewportWidth(), this->getHeight()));
-
-	// Example ImGui window
-	ImGui::Begin("Hello, ImGui!", nullptr, windowFlags);
-	ImGui::Dummy(ImVec2(0.f, 10.f));
-
-	ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
-	ImGui::End();
-
-	ImGui::Render();
-	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-	ImGui::EndFrame();
-}
-
 Matrix4x4<float> Window::getProjectionMatrix() const
 {
 	return Matrix4x4<float>::perspectiveRH(3.1415f / 3, (float)width / height, 0.1f, 100.f);

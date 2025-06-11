@@ -22,11 +22,14 @@ class App : GLFWApplication {
 	InputHandler inputHandler;
 	Camera camera;
 	ShaderManager shaderManager;
-	std::shared_ptr<BezierC0Surface> bezierSurface;
+	std::shared_ptr<BezierC0Surface> bezierSurface[2];
+	int currSurfaceIdx = 0;
 
 	const float cameraRotSpeed = 0.02f;
 	const float cameraMoveSpeed = 0.005f;
 	const float zoomSpeed = 0.2f;
+
+	bool wireframe = false;
 
 	void addShader(const std::string& name, const std::string& vsPath,
 		const std::string& psPath, const std::string& gsPath = "", const std::pair<std::string, std::string>& tessPath = {"", ""},
@@ -36,5 +39,6 @@ public:
 	~App();
 	void loop();
 	void render();
+	void showUI();
 	void processInput();
 };

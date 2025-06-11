@@ -28,8 +28,6 @@ public:
 	void setupCallbacks(InputHandler& handler);
 	void handleWindowResize(int width, int height);
 
-	void handleImGui();
-
 	Matrix4x4<float> getProjectionMatrix() const;
 	Matrix4x4<float> getInverseProjectionMatrix() const;
 

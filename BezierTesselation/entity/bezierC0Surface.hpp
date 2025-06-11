@@ -16,13 +16,16 @@ class BezierC0Surface
 
 	bool drawPolynomial;
 
-	int subdivU;
-	int subdivV;
+	int subdivOuter;
+	int subdivInner;
 
 	void setPolynomialMesh(const std::vector<float>& vectices, int sizeX, int sizeZ);
 public:
 	BezierC0Surface(const std::vector<Vector4<float>>& points, int patchesX, int patchesZ);
 	~BezierC0Surface();
 	virtual void updateMesh();
+	void ShareParameterUI();
+	void changeOuterSubdiv(int delta);
+	void changeInnerSubdiv(int delta);
 	virtual void draw(const ShaderManager& shaderManager);
 };
