@@ -55,13 +55,14 @@ App::App(int width, int height, int ui_width) : GLFWApplication{}, window(width,
 	glClearColor(1.f, 1.f, 1.f, 1.f);
 
 	std::vector<Vector4<float>> controlPoints;
-	controlPoints.reserve(7 * 7);
+	int totalControlPointsDim = 3 * 4 + 1;
+	controlPoints.reserve(totalControlPointsDim * totalControlPointsDim);
 
 	float spacing = 1.0f;
 	float start = -3.0f * spacing;
 
-	for (int row = 0; row < 7; ++row) {
-		for (int col = 0; col < 7; ++col) {
+	for (int row = 0; row < totalControlPointsDim; ++row) {
+		for (int col = 0; col < totalControlPointsDim; ++col) {
 			float x = start + col * spacing;
 			float z = start + row * spacing;
 
@@ -71,24 +72,23 @@ App::App(int width, int height, int ui_width) : GLFWApplication{}, window(width,
 		}
 	}
 
-	bezierSurface[0] = std::make_shared<BezierC0Surface>(controlPoints, 2, 2);
+	bezierSurface[0] = std::make_shared<BezierC0Surface>(controlPoints, 4, 4);
 
 	std::vector<Vector4<float>> controlPoints2;
-	controlPoints2.reserve(7 * 7);
+	controlPoints2.reserve(totalControlPointsDim * totalControlPointsDim);
 
-	for (int row = 0; row < 7; ++row) {
-		for (int col = 0; col < 7; ++col) {
+	for (int row = 0; row < totalControlPointsDim; ++row) {
+		for (int col = 0; col < totalControlPointsDim; ++col) {
 			float x = start + col * spacing;
 			float z = start + row * spacing;
 
-			// Radial paraboloid: y = -0.1 * (x^2 + z^2)
 			float y = -0.1f * (x * x + z * z);
 
 			controlPoints2.emplace_back(x, y, z, 1.0f);
 		}
 	}
 
-	bezierSurface[1] = std::make_shared<BezierC0Surface>(controlPoints2, 2, 2);
+	bezierSurface[1] = std::make_shared<BezierC0Surface>(controlPoints2, 4, 4);
 
 	this->addShader("default", "res/simpleVertex.glsl", "res/simpleFragment.glsl");
 
@@ -105,6 +105,7 @@ void App::loop()
 	while (!window.shouldClose())
 	{
 		this->processInput();
+		this->bezierSurface[currSurfaceIdx]->calculateLOD(this->camera.getViewMatrix());
 		this->render();
 		this->showUI();
 		window.finishFrame();
@@ -181,6 +182,7 @@ void App::showUI()
 
 void App::processInput()
 {
+	const float subdivDelta = 0.1f;
 	//if (inputHandler.isPressed(ImGuiKey_MouseMiddle, true))
 	if (inputHandler.isPressed(ImGuiKey_MouseRight, true))
 	{
@@ -196,19 +198,19 @@ void App::processInput()
 	}
 	if (inputHandler.isPressed(ImGuiKey_E))
 	{
-		bezierSurface[currSurfaceIdx]->changeOuterSubdiv(1);
+		bezierSurface[currSurfaceIdx]->changeOuterSubdiv(subdivDelta);
 	}
 	if (inputHandler.isPressed(ImGuiKey_D))
 	{
-		bezierSurface[currSurfaceIdx]->changeOuterSubdiv(-1);
+		bezierSurface[currSurfaceIdx]->changeOuterSubdiv(-subdivDelta);
 	}
 	if (inputHandler.isPressed(ImGuiKey_R))
 	{
-		bezierSurface[currSurfaceIdx]->changeInnerSubdiv(1);
+		bezierSurface[currSurfaceIdx]->changeInnerSubdiv(subdivDelta);
 	}
 	if (inputHandler.isPressed(ImGuiKey_F))
 	{
-		bezierSurface[currSurfaceIdx]->changeInnerSubdiv(-1);
+		bezierSurface[currSurfaceIdx]->changeInnerSubdiv(-subdivDelta);
 	}
 
 	camera.zoom(inputHandler.getScrollMove());

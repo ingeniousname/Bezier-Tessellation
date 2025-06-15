@@ -2,6 +2,7 @@
 #include <memory>
 #include <vector>
 #include <vector/vector.hpp>
+#include <matrix/matrix.hpp>
 #include "mesh\mesh.hpp"
 
 class ShaderManager;
@@ -16,8 +17,10 @@ class BezierC0Surface
 
 	bool drawPolynomial;
 
-	int subdivOuter;
-	int subdivInner;
+	float subdivOuter;
+	float subdivInner;
+
+	Matrix4x4<float> lod;
 
 	void setPolynomialMesh(const std::vector<float>& vectices, int sizeX, int sizeZ);
 public:
@@ -25,7 +28,8 @@ public:
 	~BezierC0Surface();
 	virtual void updateMesh();
 	void ShareParameterUI();
-	void changeOuterSubdiv(int delta);
-	void changeInnerSubdiv(int delta);
+	void changeOuterSubdiv(float delta);
+	void changeInnerSubdiv(float delta);
 	virtual void draw(const ShaderManager& shaderManager);
+	void calculateLOD(const Matrix4x4<float>& view);
 };

@@ -8,7 +8,7 @@
 #include <imgui.h>
 
 BezierC0Surface::BezierC0Surface(const std::vector<Vector4<float>>& points, int patchesU, int patchesV)
-	: points(points), patchesU(patchesU), patchesV(patchesV), subdivOuter(10), subdivInner(10)
+	: points(points), patchesU(patchesU), patchesV(patchesV), subdivOuter(1), subdivInner(1)
 {
 	this->updateMesh();
 }
@@ -39,6 +39,31 @@ void BezierC0Surface::setPolynomialMesh(const std::vector<float>& vertices, int 
 	}
 
 	polynomialMesh = Mesh::createMesh(vertices, indices);
+}
+
+void BezierC0Surface::calculateLOD(const Matrix4x4<float>& view)
+{
+	assert(patchesU == 4 && patchesV == 4);
+
+	int sizeU = 3 * patchesU + 1;
+	int sizeV = 3 * patchesV + 1;
+
+	for (int i = 0; i < 4; i++)
+	{
+		for (int j = 0; j < 4; j++)
+		{
+			Vector4<float> avg(0.f);
+			for (int i1 = i * 3; i1 < i * 3 + 4; i1++)
+				for (int j1 = j * 3; j1 < j * 3 + 4; j1++)
+					avg += this->points[i1 * sizeV + j1];
+
+			avg /= 16;
+			avg = view * avg;
+			float z = std::abs(avg.z);
+
+			this->lod[i][j] = std::clamp(-16.f * std::log10f(z * 0.01f), 1.f, 64.f);
+		}
+	}
 }
 
 void BezierC0Surface::updateMesh()
@@ -80,39 +105,23 @@ void BezierC0Surface::ShareParameterUI()
 {
 	ImGui::Checkbox("Draw polynomial", &drawPolynomial);
 
-	if (ImGui::InputInt("Subdivisions outside", &subdivOuter))
+	if (ImGui::SliderFloat("Subdivisions outside", &subdivOuter, 0.1f, 5.f))
 	{
-		if (subdivOuter < 2)
-			subdivOuter = 2;
-		if (subdivOuter > 50)
-			subdivOuter = 50;
 	}
 
-	if (ImGui::InputInt("Subdivisions inside", &subdivInner))
+	if (ImGui::SliderFloat("Subdivisions inside", &subdivInner, 0.1f, 5.f))
 	{
-		if (subdivInner < 2)
-			subdivInner = 2;
-		if (subdivInner > 50)
-			subdivInner = 50;
 	}
 }
 
-void BezierC0Surface::changeOuterSubdiv(int delta)
+void BezierC0Surface::changeOuterSubdiv(float delta)
 {
 	subdivOuter += delta;
-	if (subdivOuter < 2)
-		subdivOuter = 2;
-	if (subdivOuter > 50)
-		subdivOuter = 50;
 }
 
-void BezierC0Surface::changeInnerSubdiv(int delta)
+void BezierC0Surface::changeInnerSubdiv(float delta)
 {
 	subdivInner += delta;
-	if (subdivInner < 2)
-		subdivInner = 2;
-	if (subdivInner > 50)
-		subdivInner = 50;
 }
 
 void BezierC0Surface::draw(const ShaderManager& shaderManager)
@@ -132,9 +141,10 @@ void BezierC0Surface::draw(const ShaderManager& shaderManager)
 	this->mesh->bind();
 	shaderManager.get("bezierC0Surface")->bind();
 	shaderManager.get("bezierC0Surface")->setUniformVec4f("color", { 0.f, 0.f, 1.f, 1.f });
+	shaderManager.get("bezierC0Surface")->setUniformMat4fv("lod", lod);
 
-	shaderManager.get("bezierC0Surface")->setUniformInt("subdivOuter", subdivOuter);
-	shaderManager.get("bezierC0Surface")->setUniformInt("subdivInner", subdivInner);
+	shaderManager.get("bezierC0Surface")->setUniformFloat("subdivOuter", subdivOuter);
+	shaderManager.get("bezierC0Surface")->setUniformFloat("subdivInner", subdivInner);
 
 	Call(glPatchParameteri(GL_PATCH_VERTICES, 16));
 	Call(glDrawElements(GL_PATCHES, this->mesh->getIndiciesCount(), GL_UNSIGNED_INT, nullptr));

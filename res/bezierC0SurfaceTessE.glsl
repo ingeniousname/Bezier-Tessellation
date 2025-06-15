@@ -75,7 +75,7 @@ void main() {
     vec3 normal = evaluateNormal(u, v);
 
     te_position = position;
-    te_normal = mat3(view) * normal; // transform to view space
+    te_normal = normal; 
 
     gl_Position = projection * view * vec4(position, 1.0);
 }
